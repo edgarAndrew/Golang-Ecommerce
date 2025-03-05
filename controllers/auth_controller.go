@@ -26,8 +26,8 @@ func Signup(c *fiber.Ctx) error {
 	}
 
 	// Validate input
-	if user.Username == "" || user.Password == "" || user.Email == "" {
-		log.Print("Email, Username and Password are required")
+	if user.Username == "" || user.Password == "" || user.Email == "" || user.FirstName == "" || user.LastName == "" || user.Phone == "" {
+		log.Print("Email, Username, Password, First Name, Last Name, and Phone are required")
 		return errors.ErrBadRequest
 	}
 

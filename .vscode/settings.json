@@ -1,0 +1,15 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "driver": "MySQL",
+            "name": "go lang",
+            "connectString": "mysql://avnadmin:AVNS_NOCVER4TImL0jT_iT5w@go-lang-ecommerce-go-lang-ecommerce.h.aivencloud.com:23814/defaultdb?ssl-mode=REQUIRED"
+        }
+    ]
+}
