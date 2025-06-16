@@ -67,6 +67,27 @@ This project is a robust REST API built with Golang, featuring a dynamic front-e
 ### Steps
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/yourproject.git
-   cd yourproject
+   https://github.com/edgarAndrew/Golang-Ecommerce.git
+   cd Golang-Ecommerce
    ```
+2. **Setup env**:
+   ```bash
+   CLOUDINARY_NAME=<your cloudinary name>
+   CLOUDINARY_API_KEY=<your cloudinary api key>
+   CLOUDINARY_API_SECRET=<your cloudinary secret>
+   JWT_SECRET=<your jwt secret key>
+   JWT_EXPIRATION_HOURS=<hours>
+   PORT=<your port>
+   ENABLE_CORS=<true/false>
+   USE_SQLITE_DB=<true/false> (set to true if you want to use a sqlite local db)
+   MYSQL_URI=<your mysql uri> (mandatory if USE_SQLITE_DB is false)
+   SHOW_SQL=<true/false>
+   ```
+
+3. **Start server**:
+   ```bash
+   go run main.go
+   ```
+
+4. **Explore endpoints**:
+##### Import the postman collection json in postman
