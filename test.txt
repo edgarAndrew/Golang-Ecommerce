@@ -1,0 +1,2 @@
+See where the image is getting stored
+Update product routes to be able to send only the image file, no need for name and other fields

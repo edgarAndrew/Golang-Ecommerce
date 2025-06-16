@@ -28,12 +28,16 @@ func UpdateUser(c *fiber.Ctx) error {
 		return errors.ErrBadRequest
 	}
 
+	// Define structure for user update request
 	type UpdateUserRequest struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Username  string `json:"username"`
+		Password  string `json:"password"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Phone     string `json:"phone"`
 	}
-	request := new(UpdateUserRequest)
 
+	request := new(UpdateUserRequest)
 	if err := c.BodyParser(request); err != nil {
 		log.Print(err, "Invalid request body")
 		return errors.ErrBadRequest
@@ -45,8 +49,18 @@ func UpdateUser(c *fiber.Ctx) error {
 		return errors.ErrNotFound
 	}
 
+	// Update user fields
 	if request.Username != "" {
 		obj.Username = request.Username
+	}
+	if request.FirstName != "" {
+		obj.FirstName = request.FirstName
+	}
+	if request.LastName != "" {
+		obj.LastName = request.LastName
+	}
+	if request.Phone != "" {
+		obj.Phone = request.Phone
 	}
 
 	if request.Password != "" {
@@ -58,6 +72,7 @@ func UpdateUser(c *fiber.Ctx) error {
 		obj.Password = string(hashedPassword)
 	}
 
+	// Save updated user to the database
 	if err := database.DB.Save(&obj).Error; err != nil {
 		log.Print(err, "Failed to update user")
 		return errors.ErrInternalServer

@@ -69,10 +69,24 @@ func ConnectMySQLDB() {
 	}
 
 	// Auto migrate models
-	err := DB.AutoMigrate(&models.User{}, &models.Product{}, &models.Order{}, &models.Image{})
+	err := DB.AutoMigrate(
+		&models.Address{},
+		&models.Brand{},
+		&models.Cart{},
+		&models.Category{},
+		&models.Image{},
+		&models.OrderItem{},
+		&models.Order{},
+		&models.Product{},
+		&models.Review{},
+		&models.SubCategory{},
+		&models.User{},
+		&models.Wishlist{},
+	)
 	if err != nil {
 		log.Fatalf("failed to Auto migrate models to database: %v", err)
 	}
+	log.Println("Auto migrated models.%v", err)
 
 	log.Println("Connected to MySQL database.")
 }

@@ -1,10 +1,15 @@
-// models/product.go
 package models
 
 type Product struct {
-	ID          uint `gorm:"primaryKey"`
-	Name        string
-	Description string  `gorm:"type:text"`
-	Price       float64 `gorm:"type:decimal(10,2); not null"`
-	Orders      []Order `gorm:"foreignKey:ProductID"` // Reverse relationship
+	ID               uint   `gorm:"primaryKey"`
+	BrandID          uint   `gorm:"index"`
+	SubCategoryID    uint   `gorm:"index"`
+	ProductName      string
+	ProductDescription string
+	CompanyReview    string
+	Price           float64
+	Stock           int
+	SalePercentage  float64
+	Images          []Image `gorm:"foreignKey:ProductID"`
+	Reviews         []Review       `gorm:"foreignKey:ProductID"`
 }

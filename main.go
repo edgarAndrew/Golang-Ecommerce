@@ -36,10 +36,17 @@ func main() {
 	}
 
 	// Set up routes
+	routes.AddressRoutes(app)
 	routes.AuthRoutes(app)
-	routes.ProductRoutes(app)
+	routes.BrandRoutes(app)
+	routes.CartRoutes(app)
+	routes.CategoryRoutes(app)
 	routes.OrderRoutes(app)
+	routes.ProductRoutes(app)
+	routes.ReviewRoutes(app)
+	routes.SubCategoryRoutes(app)
 	routes.UserRoutes(app)
+	routes.WishlistRoutes(app)
 
 	app.Use(middlewares.NotFoundHandler)
 

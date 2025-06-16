@@ -8,12 +8,19 @@ import (
 )
 
 type User struct {
-	ID       uint   `gorm:"primaryKey"` // will be used as PK
-	Username string `gorm:"unique"`     // will check for unique constraint
-	Email    string `gorm:"unique"`
-	Password string
-	Admin    int     `gorm:"default:0"`
-	Orders   []Order `gorm:"foreignKey:UserID"` // Reverse relationship
+	ID        uint       `gorm:"primaryKey"`
+	FirstName string
+	LastName  string
+	Phone     string
+	Email     string `gorm:"unique"`
+	Username  string `gorm:"unique"`
+	Password  string
+	Admin   bool      `gorm:"default:false"`
+	Addresses []Address `gorm:"foreignKey:UserID"`
+	Reviews   []Review  `gorm:"foreignKey:UserID"`
+	Wishlist  []Wishlist `gorm:"foreignKey:UserID"`
+	Cart      []Cart    `gorm:"foreignKey:UserID"`
+	Orders    []Order   `gorm:"foreignKey:UserID"`
 }
 
 // Custom validation function
@@ -38,7 +45,7 @@ func (u *User) ValidatePasswordLength(db *gorm.DB) error {
 
 // getter
 func (u *User) IsAdmin() bool {
-	return u.Admin != 0
+	return u.Admin
 }
 
 // BeforeCreate is a GORM hook that runs before creating a user record

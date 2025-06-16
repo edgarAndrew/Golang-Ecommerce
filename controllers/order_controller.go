@@ -1,4 +1,3 @@
-// controllers/order_controller.go
 package controllers
 
 import (
@@ -17,36 +16,59 @@ func CreateOrder(c *fiber.Ctx) error {
 
 	// Parse the order data from the request body
 	type OrderCreateRequest struct {
-		ProductID uint `json:"productId"`
-		Quantity  int  `json:"quantity"`
+		OrderItems []struct {
+			ProductID uint `json:"productId"`
+			Quantity  int  `json:"quantity"`
+		} `json:"orderItems"`
 	}
-	order := new(OrderCreateRequest)
+	orderRequest := new(OrderCreateRequest)
 
-	if err := c.BodyParser(order); err != nil {
+	if err := c.BodyParser(orderRequest); err != nil {
 		log.Print(err, "Invalid request body")
 		return errors.ErrBadRequest
 	}
 
-	var product models.Product
-	database.DB.First(&product, "id = ?", order.ProductID)
-
-	if product.ID == 0 {
-		log.Print("Product not found")
-		return errors.ErrNotFound
+	// Create a new order
+	order := &models.Order{
+		UserID:    user.ID,
+		Status:    "Pending",
+		User:      user,
+		OrderItems: []models.OrderItem{},
 	}
 
-	obj := new(models.Order)
-	obj.ProductID = order.ProductID
-	obj.Quantity = order.Quantity
-	obj.UserID = user.ID
-	obj.Status = "Pending"
-	obj.User = user
-	obj.Product = product
+	// Add order items
+	for _, item := range orderRequest.OrderItems {
+		var product models.Product
+		database.DB.First(&product, "id = ?", item.ProductID)
+
+		if product.ID == 0 {
+			log.Print("Product not found")
+			return errors.ErrNotFound
+		}
+
+		orderItem := models.OrderItem{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			Price:     product.Price, // Assuming Product has a Price field
+		}
+
+		// Append the OrderItem to the Order
+		order.OrderItems = append(order.OrderItems, orderItem)
+	}
 
 	// Save the order to the database
-	if err := database.DB.Create(&obj).Error; err != nil {
+	if err := database.DB.Create(&order).Error; err != nil {
 		log.Print(err, "Failed to create order")
 		return errors.ErrInternalServer
+	}
+
+	// Ensure the order items are saved with the order
+	for _, item := range order.OrderItems {
+		item.OrderID = order.ID
+		if err := database.DB.Create(&item).Error; err != nil {
+			log.Print(err, "Failed to create order item")
+			return errors.ErrInternalServer
+		}
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -99,26 +121,23 @@ func ChangeOrderStatus(c *fiber.Ctx) error {
 		return errors.ErrBadRequest
 	}
 
-	// if err := database.DB.Model(&models.Order{}).Where("id = ?", orderID).Update("status", order.Status).Error; err != nil {
-	// 	log.Print(err, "Failed to update order due to invalid status or invalid order ID")
-	// 	return errors.ErrBadRequest
-	// }
-
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Order status updated successfully",
 	})
 }
 
 func GetAllOrders(c *fiber.Ctx) error {
-
 	type OrderResponse struct {
 		ID        uint      `json:"id"`
 		UserID    uint      `json:"user_id"`
-		ProductID uint      `json:"product_id"`
-		Quantity  int       `json:"quantity"`
 		Status    string    `json:"status"`
 		CreatedAt time.Time `json:"created_at"`
 		UpdatedAt time.Time `json:"updated_at"`
+		OrderItems []struct {
+			ProductID uint    `json:"product_id"`
+			Quantity  int     `json:"quantity"`
+			Price     float64 `json:"price"`
+		} `json:"order_items"`
 	}
 
 	// Fetch the current user
@@ -131,9 +150,9 @@ func GetAllOrders(c *fiber.Ctx) error {
 		return errors.ErrForbidden
 	}
 
-	// Fetch all orders
+	// Fetch all orders along with their order items
 	var orders []models.Order
-	if err := database.DB.Find(&orders).Error; err != nil {
+	if err := database.DB.Preload("OrderItems").Find(&orders).Error; err != nil {
 		log.Print(err, "Failed to fetch orders")
 		return errors.ErrInternalServer
 	}
@@ -144,11 +163,26 @@ func GetAllOrders(c *fiber.Ctx) error {
 		response[i] = OrderResponse{
 			ID:        order.ID,
 			UserID:    order.UserID,
-			ProductID: order.ProductID,
-			Quantity:  order.Quantity,
 			Status:    order.Status,
 			CreatedAt: order.CreatedAt,
 			UpdatedAt: order.UpdatedAt,
+			OrderItems: []struct {
+				ProductID uint    `json:"product_id"`
+				Quantity  int     `json:"quantity"`
+				Price     float64 `json:"price"`
+			}{},
+		}
+		// Populate the order items
+		for _, item := range order.OrderItems {
+			response[i].OrderItems = append(response[i].OrderItems, struct {
+				ProductID uint    `json:"product_id"`
+				Quantity  int     `json:"quantity"`
+				Price     float64 `json:"price"`
+			}{
+				ProductID: item.ProductID,
+				Quantity:  item.Quantity,
+				Price:     item.Price,
+			})
 		}
 	}
 
@@ -165,30 +199,49 @@ func GetMyOrders(c *fiber.Ctx) error {
 	type OrderResponse struct {
 		ID        uint      `json:"id"`
 		UserID    uint      `json:"user_id"`
-		ProductID uint      `json:"product_id"`
-		Quantity  int       `json:"quantity"`
 		Status    string    `json:"status"`
 		CreatedAt time.Time `json:"created_at"`
 		UpdatedAt time.Time `json:"updated_at"`
+		OrderItems []struct {
+			ProductID uint    `json:"product_id"`
+			Quantity  int     `json:"quantity"`
+			Price     float64 `json:"price"`
+		} `json:"order_items"`
 	}
 
 	// Fetch all orders for the current user
 	var orders []models.Order
-	if err := database.DB.Where("user_id = ?", user.ID).Find(&orders).Error; err != nil {
+	if err := database.DB.Where("user_id = ?", user.ID).Preload("OrderItems").Find(&orders).Error; err != nil {
 		log.Print(err, "Failed to fetch orders")
 		return errors.ErrInternalServer
 	}
 
+	// Map orders to the response struct
 	response := make([]OrderResponse, len(orders))
 	for i, order := range orders {
 		response[i] = OrderResponse{
 			ID:        order.ID,
 			UserID:    order.UserID,
-			ProductID: order.ProductID,
-			Quantity:  order.Quantity,
 			Status:    order.Status,
 			CreatedAt: order.CreatedAt,
 			UpdatedAt: order.UpdatedAt,
+			OrderItems: []struct {
+				ProductID uint    `json:"product_id"`
+				Quantity  int     `json:"quantity"`
+				Price     float64 `json:"price"`
+			}{},
+		}
+		// Populate the order items
+		for _, item := range order.OrderItems {
+			response[i].OrderItems = append(response[i].OrderItems, struct {
+				ProductID uint    `json:"product_id"`
+				Quantity  int     `json:"quantity"`
+				Price     float64 `json:"price"`
+			}{
+				ProductID: item.ProductID,
+				Quantity:  item.Quantity,
+				Price:     item.Price,
+			})
 		}
 	}
 

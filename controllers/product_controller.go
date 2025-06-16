@@ -11,10 +11,10 @@ import (
 	"log"
 
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
-
 	"github.com/gofiber/fiber/v2"
 )
 
+// CreateProduct creates a new product
 func CreateProduct(c *fiber.Ctx) error {
 	var user models.User
 	database.DB.First(&user, "id = ?", c.Locals("userID"))
@@ -44,16 +44,58 @@ func CreateProduct(c *fiber.Ctx) error {
 	})
 }
 
+// UpdateProduct updates an existing product
 func UpdateProduct(c *fiber.Ctx) error {
-	// Implementation here
-	return nil
+	// Get user ID from context
+	userID := c.Locals("userID")
+	var user models.User
+	if err := database.DB.First(&user, "id = ?", userID).Error; err != nil {
+		log.Print(err, "Failed to find user")
+		return errors.ErrNotFound
+	}
+
+	// Check admin permissions
+	if !user.IsAdmin() {
+		log.Print("User is not an admin")
+		return errors.ErrForbidden
+	}
+
+	// Get product ID from URL params
+	productID := c.Params("id")
+	if productID == "" {
+		log.Print("Product ID is required")
+		return errors.ErrBadRequest
+	}
+
+	// Find the product
+	var product models.Product
+	if err := database.DB.First(&product, "id = ?", productID).Error; err != nil {
+		log.Print(err, "Product not found")
+		return errors.ErrNotFound
+	}
+
+	// Parse the new data
+	if err := c.BodyParser(&product); err != nil {
+		log.Print(err, "Failed to parse product data")
+		return errors.ErrBadRequest
+	}
+
+	// Save the updated product
+	if err := database.DB.Save(&product).Error; err != nil {
+		log.Print(err, "Failed to update product")
+		return errors.ErrInternalServer
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Product updated successfully",
+		"product": product,
+	})
 }
 
+// DeleteProduct deletes a product
 func DeleteProduct(c *fiber.Ctx) error {
 	// Get user ID from context
 	userID := c.Locals("userID")
-
-	// Fetch the user to verify admin status
 	var user models.User
 	if err := database.DB.First(&user, "id = ?", userID).Error; err != nil {
 		log.Print(err, "Failed to find user")
@@ -84,46 +126,75 @@ func DeleteProduct(c *fiber.Ctx) error {
 	})
 }
 
+// GetProducts retrieves all products with basic information and one image
 func GetProducts(c *fiber.Ctx) error {
-	var products []models.Product
+    var products []models.Product
 
-	// Fetch all products
-	if err := database.DB.Find(&products).Error; err != nil {
-		log.Print(err, "Failed to retrieve products")
-		return errors.ErrInternalServer
-	}
+    // Preload Images and Reviews when fetching products
+    if err := database.DB.Preload("Images").Preload("Reviews").Find(&products).Error; err != nil {
+        log.Print(err, "Failed to retrieve products")
+        return errors.ErrInternalServer
+    }
 
-	var response []map[string]interface{}
+    var response []map[string]interface{}
 
-	for _, prod := range products {
-		var images []models.Image
-		if err := database.DB.Where("product_id = ?", prod.ID).Find(&images).Error; err != nil {
-			log.Printf("%s, Failed to fetch product image for product %v", err, prod.ID)
-			// return errors.ErrInternalServer
-		}
-		imageURL := ""
-		if len(images) > 0 {
-			imageURL = images[0].Url
-		}
+    // Loop through products and retrieve associated images
+    for _, prod := range products {
+        // Ensure only one image is included (using the first image, if available)
+        imageURL := ""
+        if len(prod.Images) > 0 {
+            imageURL = prod.Images[0].Url
+        }
 
-		// Append product and image URL to the response
-		response = append(response, map[string]interface{}{
-			"product": prod,
-			"image":   imageURL,
-		})
-	}
+        // Append product, image URL, and reviews to the response
+        response = append(response, map[string]interface{}{
+            "ID":                 prod.ID,
+            "BrandID":            prod.BrandID,
+            "SubCategoryID":      prod.SubCategoryID,
+            "ProductName":        prod.ProductName,
+            "ProductDescription": prod.ProductDescription,
+            "Price":              prod.Price,
+            "Stock":              prod.Stock,
+            "SalePercentage":     prod.SalePercentage,
+            "Image":              imageURL,  // Only one image
+        })
+    }
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"products": response,
-	})
+    return c.Status(fiber.StatusOK).JSON(fiber.Map{
+        "products": response,
+    })
 }
 
+
+// GetProductDetails retrieves detailed information for a specific product
+func GetProductDetails(c *fiber.Ctx) error {
+	productID := c.Params("id")
+    if productID == "" {
+        log.Print("Product ID is required")
+        return errors.ErrBadRequest
+    }
+
+    // Find the product by ID
+    var product models.Product
+    if err := database.DB.Preload("Images").Preload("Reviews").First(&product, "id = ?", productID).Error; err != nil {
+        log.Print(err, "Product not found")
+        return errors.ErrNotFound
+    }
+
+    // Return the product with all details
+    return c.Status(fiber.StatusOK).JSON(fiber.Map{
+        "product": product,
+    })
+}
+
+
+// AddImageToProduct adds an image to a product
 func AddImageToProduct(c *fiber.Ctx) error {
 	var user models.User
 	database.DB.First(&user, "id = ?", c.Locals("userID"))
 
 	// Check if the user is an admin
-	if !user.IsAdmin() {
+	if !user.Admin {
 		log.Print("User is not an admin")
 		return errors.ErrForbidden
 	}
@@ -178,7 +249,7 @@ func AddImageToProduct(c *fiber.Ctx) error {
 	// Save the image to the database
 	obj.ProductID = product.ID
 	obj.Url = resp.URL
-	obj.Name = product.Name + "_" + file.Filename
+	obj.Name = product.ProductName + "_" + file.Filename
 
 	// Save the image to the database
 	if err := database.DB.Create(&obj).Error; err != nil {
@@ -191,6 +262,7 @@ func AddImageToProduct(c *fiber.Ctx) error {
 	})
 }
 
+// GetProductImages retrieves images for a specific product
 func GetProductImages(c *fiber.Ctx) error {
 	// Get product ID from URL params
 	productID := c.Params("id")
@@ -223,5 +295,4 @@ func GetProductImages(c *fiber.Ctx) error {
 		"product_id": productID,
 		"images":     images,
 	})
-
 }

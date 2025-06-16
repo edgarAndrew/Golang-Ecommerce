@@ -2,8 +2,8 @@ package models
 
 type Image struct {
 	ID        uint   `gorm:"primaryKey"`
-	Name      string `gorm:"not null"`
 	Url       string
+	Name	  string
 	ProductID uint    `gorm:"index;not null"`                                // foreign key to Product table
-	Product   Product `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // FK to Product
+	Product   *Product `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"` // FK to Product
 }
